@@ -1,0 +1,186 @@
+-- Address object
+CREATE OR REPLACE TYPE address_type AS OBJECT (
+    street_number NUMBER,
+    street_name VARCHAR2(50),
+    suburb VARCHAR2(50),
+    state VARCHAR2(20),
+    pin VARCHAR2(10)
+);
+/
+
+-- Investment object
+CREATE OR REPLACE TYPE investment_type AS OBJECT (
+    company VARCHAR2(50),
+    purchase_price NUMBER(10,2),
+    purchase_date DATE,
+    qty NUMBER
+);
+/
+
+-- Nested table for investments
+CREATE OR REPLACE TYPE investment_table AS TABLE OF investment_type;
+/
+
+-- VARRAY for exchanges
+CREATE OR REPLACE TYPE exchange_array AS VARRAY(10) OF VARCHAR2(50);
+/
+
+-- Client object
+CREATE OR REPLACE TYPE client_type AS OBJECT (
+    firstname VARCHAR2(50),
+    lastname VARCHAR2(50),
+    address address_type,
+    investments investment_table
+);
+/
+
+-- Stock object
+CREATE OR REPLACE TYPE stock_type AS OBJECT (
+    company VARCHAR2(50),
+    current_price NUMBER(10,2),
+    exchanges exchange_array,
+    last_dividend NUMBER(10,2),
+    eps NUMBER(10,2)
+);
+/
+
+-- Create Tables
+CREATE TABLE clients_obj OF client_type (
+    PRIMARY KEY (firstname, lastname)
+)
+NESTED TABLE investments STORE AS investment_store;
+
+CREATE TABLE stocks_obj OF stock_type (
+    company PRIMARY KEY
+);
+
+-- Insert Stocks Data
+INSERT INTO stocks_obj VALUES (
+    stock_type('BHP', 10.50, exchange_array('Sydney','New York'),1.50,3.20));
+
+INSERT INTO stocks_obj VALUES (
+    stock_type('IBM',70.00,exchange_array('New York','London','Tokyo'),4.25,10.00));
+
+INSERT INTO stocks_obj VALUES (
+    stock_type('INTEL',76.50,exchange_array('New York','London'),5.00,12.40));
+
+INSERT INTO stocks_obj VALUES (
+    stock_type('FORD',40.00,exchange_array('New York'),2.00,8.50));
+
+INSERT INTO stocks_obj VALUES (
+    stock_type('GM',60.00,exchange_array('New York'),2.50,9.20));
+
+INSERT INTO stocks_obj VALUES (
+    stock_type('INFOSYS',45.00,exchange_array('New York'),3.00,7.80));
+
+-- Insert Clients Data
+INSERT INTO clients_obj VALUES (
+    client_type(
+        'John', 
+        'Smith',
+        address_type(3, 'East Av', 'Bentley', 'WA', '6102'),
+        investment_table(
+            investment_type('BHP', 12.00, TO_DATE('02/10/01', 'DD/MM/YY'), 1000),
+            investment_type('BHP', 10.50, TO_DATE('08/06/02', 'DD/MM/YY'), 2000),
+            investment_type('IBM', 58.00, TO_DATE('12/02/00', 'DD/MM/YY'), 500),
+            investment_type('IBM', 65.00, TO_DATE('10/04/01', 'DD/MM/YY'), 1200),
+            investment_type('INFOSYS', 64.00, TO_DATE('11/08/01', 'DD/MM/YY'), 1000)
+        )
+    )
+);
+
+INSERT INTO clients_obj VALUES (
+    client_type(
+        'Jill', 
+        'Brody',
+        address_type(42, 'Bent St', 'Perth', 'WA', '6001'),
+        investment_table(
+            investment_type('INTEL', 35.00, TO_DATE('30/01/00', 'DD/MM/YY'), 300),
+            investment_type('INTEL', 54.00, TO_DATE('30/01/01', 'DD/MM/YY'), 400),
+            investment_type('INTEL', 60.00, TO_DATE('02/10/01', 'DD/MM/YY'), 200),
+            investment_type('FORD', 40.00, TO_DATE('05/10/99', 'DD/MM/YY'), 300),
+            investment_type('GM', 55.50, TO_DATE('12/12/00', 'DD/MM/YY'), 500)
+        )
+    )
+);
+
+COMMIT;
+
+-- 4. QUERIES
+
+-- (a)
+SELECT c.firstname, c.lastname,
+       i.company, s.current_price, s.last_dividend, s.eps
+FROM clients_obj c,
+     TABLE(c.investments) i,
+     stocks_obj s
+WHERE i.company = s.company;
+
+-- (b)
+SELECT c.firstname, c.lastname,
+       i.company,
+       SUM(i.qty) total_qty,
+       ROUND(SUM(i.qty*i.purchase_price)/SUM(i.qty),2) avg_price
+FROM clients_obj c,
+     TABLE(c.investments) i
+GROUP BY c.firstname, c.lastname, i.company;
+
+-- (c)
+SELECT s.company,
+       c.firstname,
+       c.lastname,
+       SUM(i.qty) qty,
+       SUM(i.qty)*s.current_price AS current_value
+FROM clients_obj c,
+     TABLE(c.investments) i,
+     stocks_obj s,
+     TABLE(s.exchanges) e
+WHERE i.company = s.company
+AND e.COLUMN_VALUE='New York'
+GROUP BY s.company, c.firstname, c.lastname, s.current_price;
+
+-- (d)
+SELECT c.firstname, c.lastname,
+       SUM(i.qty*i.purchase_price) total_purchase_value
+FROM clients_obj c,
+     TABLE(c.investments) i
+GROUP BY c.firstname, c.lastname;
+
+-- (e)
+SELECT c.firstname, c.lastname,
+       SUM(i.qty*s.current_price) - SUM(i.qty*i.purchase_price) AS book_profit
+FROM clients_obj c,
+     TABLE(c.investments) i,
+     stocks_obj s
+WHERE i.company = s.company
+GROUP BY c.firstname, c.lastname;
+
+-- 5. UPDATES
+
+-- John sells INFOSYS to Jill
+DELETE FROM TABLE(
+  SELECT investments FROM clients_obj
+  WHERE firstname='John' AND lastname='Smith'
+)
+WHERE company='INFOSYS';
+
+INSERT INTO TABLE(
+  SELECT investments FROM clients_obj
+  WHERE firstname='Jill' AND lastname='Brody'
+)
+VALUES (investment_type('INFOSYS',45.00,SYSDATE,1000));
+
+-- Jill sells GM to John
+DELETE FROM TABLE(
+  SELECT investments FROM clients_obj
+  WHERE firstname='Jill' AND lastname='Brody'
+)
+WHERE company='GM';
+
+INSERT INTO TABLE(
+  SELECT investments FROM clients_obj
+  WHERE firstname='John' AND lastname='Smith'
+)
+VALUES (investment_type('GM',60.00,SYSDATE,500));
+
+COMMIT;
