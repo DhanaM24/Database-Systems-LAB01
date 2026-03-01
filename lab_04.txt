@@ -1,0 +1,194 @@
+1)
+
+a)
+
+ALTER TYPE stock_t ADD MEMBER FUNCTION yield_pct RETURN NUMBER CASCADE;
+/
+CREATE OR REPLACE TYPE BODY stock_t AS
+  MEMBER FUNCTION yield_pct RETURN NUMBER IS
+  BEGIN
+    IF dividend IS NULL OR current_price IS NULL OR current_price = 0 THEN
+      RETURN NULL;
+    END IF;
+    RETURN (dividend / current_price) * 100;
+  END yield_pct;
+END;
+/
+
+
+b)
+
+ALTER TYPE stock_t ADD MEMBER FUNCTION price_usd(rate NUMBER) RETURN NUMBER CASCADE;
+/
+CREATE OR REPLACE TYPE BODY stock_t AS
+  MEMBER FUNCTION yield_pct RETURN NUMBER IS
+  BEGIN
+    IF dividend IS NULL OR current_price IS NULL OR current_price = 0 THEN
+      RETURN NULL;
+    END IF;
+    RETURN (dividend / current_price) * 100;
+  END yield_pct;
+
+  MEMBER FUNCTION price_usd(rate NUMBER) RETURN NUMBER IS
+  BEGIN
+    IF current_price IS NULL OR rate IS NULL THEN
+      RETURN NULL;
+    END IF;
+    RETURN current_price * rate;
+  END price_usd;
+END;
+/
+
+
+c)
+
+ALTER TYPE stock_t ADD MEMBER FUNCTION exchange_count RETURN NUMBER CASCADE;
+/
+CREATE OR REPLACE TYPE BODY stock_t AS
+  MEMBER FUNCTION yield_pct RETURN NUMBER IS
+  BEGIN
+    IF dividend IS NULL OR current_price IS NULL OR current_price = 0 THEN
+      RETURN NULL;
+    END IF;
+    RETURN (dividend / current_price) * 100;
+  END yield_pct;
+
+  MEMBER FUNCTION price_usd(rate NUMBER) RETURN NUMBER IS
+  BEGIN
+    IF current_price IS NULL OR rate IS NULL THEN
+      RETURN NULL;
+    END IF;
+    RETURN current_price * rate;
+  END price_usd;
+
+  MEMBER FUNCTION exchange_count RETURN NUMBER IS
+  BEGIN
+    IF exchanges IS NULL THEN
+      RETURN 0;
+    END IF;
+    RETURN exchanges.COUNT;
+  END exchange_count;
+END;
+/
+
+
+d)
+
+ALTER TYPE client_t ADD MEMBER FUNCTION total_purchase_value RETURN NUMBER CASCADE;
+/
+CREATE OR REPLACE TYPE BODY client_t AS
+  MEMBER FUNCTION total_purchase_value RETURN NUMBER IS
+    v_total NUMBER := 0;
+  BEGIN
+    IF investments IS NULL THEN
+      RETURN 0;
+    END IF;
+
+    FOR i IN 1 .. investments.COUNT LOOP
+      IF investments(i).purchase_price IS NOT NULL AND investments(i).qty IS NOT NULL THEN
+        v_total := v_total + (investments(i).purchase_price * investments(i).qty);
+      END IF;
+    END LOOP;
+
+    RETURN v_total;
+  END total_purchase_value;
+END;
+/
+
+
+e)
+
+ALTER TYPE client_t ADD MEMBER FUNCTION total_profit RETURN NUMBER CASCADE;
+/
+CREATE OR REPLACE TYPE BODY client_t AS
+  MEMBER FUNCTION total_purchase_value RETURN NUMBER IS
+    v_total NUMBER := 0;
+  BEGIN
+    IF investments IS NULL THEN
+      RETURN 0;
+    END IF;
+
+    FOR i IN 1 .. investments.COUNT LOOP
+      IF investments(i).purchase_price IS NOT NULL AND investments(i).qty IS NOT NULL THEN
+        v_total := v_total + (investments(i).purchase_price * investments(i).qty);
+      END IF;
+    END LOOP;
+
+    RETURN v_total;
+  END total_purchase_value;
+
+  MEMBER FUNCTION total_profit RETURN NUMBER IS
+    v_total NUMBER := 0;
+    v_obj   stock_t;
+  BEGIN
+    IF investments IS NULL THEN
+      RETURN 0;
+    END IF;
+
+    FOR i IN 1 .. investments.COUNT LOOP
+      IF investments(i).stock_ref IS NOT NULL
+         AND investments(i).purchase_price IS NOT NULL
+         AND investments(i).qty IS NOT NULL THEN
+        v_obj := DEREF(investments(i).stock_ref);
+        IF v_obj.current_price IS NOT NULL THEN
+          v_total := v_total + ((v_obj.current_price - investments(i).purchase_price) * investments(i).qty);
+        END IF;
+      END IF;
+    END LOOP;
+
+    RETURN v_total;
+  END total_profit;
+END;
+/
+
+
+2)
+
+a)
+
+SELECT
+  s.company,
+  e.COLUMN_VALUE AS exchange,
+  s.yield_pct() AS yield,
+  s.price_usd(0.74) AS price_usd
+FROM stocks s,
+     TABLE(s.exchanges) e;
+
+
+b)
+
+SELECT
+  s.company,
+  s.current_price,
+  s.exchange_count() AS no_of_exchanges
+FROM stocks s
+WHERE s.exchange_count() > 1;
+
+
+c)
+
+SELECT
+  c.firstname || ' ' || c.lastname AS client_name,
+  DEREF(i.stock_ref).company AS stock_name,
+  DEREF(i.stock_ref).yield_pct() AS yield,
+  DEREF(i.stock_ref).current_price AS current_price,
+  DEREF(i.stock_ref).earnings_per_share AS earnings_per_share
+FROM clients c,
+     TABLE(c.investments) i
+ORDER BY client_name, stock_name;
+
+
+d)
+
+SELECT
+  c.firstname || ' ' || c.lastname AS client_name,
+  c.total_purchase_value() AS total_value
+FROM clients c;
+
+
+e)
+
+SELECT
+  c.firstname || ' ' || c.lastname AS client_name,
+  c.total_profit() AS book_profit_or_loss
+FROM clients c;
