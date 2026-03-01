@@ -1,0 +1,183 @@
+SET SERVEROUTPUT ON;
+
+EX01
+
+DECLARE
+    v_company VARCHAR2(7) := 'IBM';
+    v_price NUMBER(6,2);
+BEGIN
+    -- Look up the price for IBM
+    SELECT price INTO v_price 
+    FROM stock 
+    WHERE company = v_company;
+    
+    -- Print the result
+    DBMS_OUTPUT.PUT_LINE('Current price of ' || v_company || ' is: ' || v_price);
+END;
+/
+
+EX02
+
+DECLARE
+    v_company VARCHAR2(7) := 'IBM';
+    v_price NUMBER(6,2);
+BEGIN
+    SELECT price INTO v_price 
+    FROM stock 
+    WHERE company = v_company;
+
+    -- Evaluate the price using IF/ELSIF
+    IF v_price < 45 THEN
+        DBMS_OUTPUT.PUT_LINE('Current price is very low !');
+    ELSIF v_price >= 45 AND v_price < 55 THEN
+        DBMS_OUTPUT.PUT_LINE('Current price is low !');
+    ELSIF v_price >= 55 AND v_price < 65 THEN
+        DBMS_OUTPUT.PUT_LINE('Current price is medium !');
+    ELSIF v_price >= 65 AND v_price < 75 THEN
+        DBMS_OUTPUT.PUT_LINE('Current price is medium high !');
+    ELSIF v_price >= 75 THEN
+        DBMS_OUTPUT.PUT_LINE('Current price is high !');
+    END IF;
+END;
+/
+
+EX03
+
+a)for loop
+
+DECLARE
+    v_line VARCHAR2(20);
+BEGIN
+    FOR i IN REVERSE 1..9 LOOP
+        v_line := '';
+        FOR j IN 1..i LOOP
+            v_line := v_line || TO_CHAR(i);
+        END LOOP;
+        DBMS_OUTPUT.PUT_LINE(v_line);
+    END LOOP;
+END;
+/
+
+b)while loop
+
+DECLARE
+    i NUMBER := 9;
+    j NUMBER;
+    v_line VARCHAR2(20);
+BEGIN
+    WHILE i >= 1 LOOP
+        j := 1;
+        v_line := '';
+        WHILE j <= i LOOP
+            v_line := v_line || TO_CHAR(i);
+            j := j + 1;
+        END LOOP;
+        DBMS_OUTPUT.PUT_LINE(v_line);
+        i := i - 1;
+    END LOOP;
+END;
+/
+
+c)simple loop
+
+DECLARE
+    i NUMBER := 9;
+    j NUMBER;
+    v_line VARCHAR2(20);
+BEGIN
+    LOOP
+        EXIT WHEN i < 1;
+        j := 1;
+        v_line := '';
+        LOOP
+            EXIT WHEN j > i;
+            v_line := v_line || TO_CHAR(i);
+            j := j + 1;
+        END LOOP;
+        DBMS_OUTPUT.PUT_LINE(v_line);
+        i := i - 1;
+    END LOOP;
+END;
+/
+
+
+EX04
+
+DECLARE
+    v_bonus NUMBER;
+BEGIN
+    -- The Cursor FOR Loop handles opening, fetching, and closing automatically
+    FOR rec IN (SELECT rowid, pdate FROM purchase) LOOP
+        
+        -- Determine the bonus based on the date
+        IF rec.pdate < TO_DATE('01-JAN-2000', 'DD-MON-YYYY') THEN
+            v_bonus := 150;
+        ELSIF rec.pdate < TO_DATE('01-JAN-2001', 'DD-MON-YYYY') THEN
+            v_bonus := 100;
+        ELSIF rec.pdate < TO_DATE('01-JAN-2002', 'DD-MON-YYYY') THEN
+            v_bonus := 50;
+        ELSE
+            v_bonus := 0;
+        END IF;
+
+        -- Update the specific row if a bonus applies
+        IF v_bonus > 0 THEN
+            UPDATE purchase
+            SET qty = qty + v_bonus
+            WHERE rowid = rec.rowid;
+        END IF;
+        
+    END LOOP;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Bonus stocks successfully updated using FOR Loop!');
+END;
+/
+
+EX05
+
+DECLARE
+    -- 1. Declare the explicit cursor
+    CURSOR cur_purchases IS SELECT rowid, pdate FROM purchase;
+    v_rowid UROWID;
+    v_pdate DATE;
+    v_bonus NUMBER;
+BEGIN
+    -- 2. Open the cursor
+    OPEN cur_purchases;
+    
+    -- 3. Fetch the first record to get the loop started
+    FETCH cur_purchases INTO v_rowid, v_pdate;
+
+    -- Loop while the cursor successfully finds data
+    WHILE cur_purchases%FOUND LOOP
+        
+        -- Determine bonus amount
+        IF v_pdate < TO_DATE('01-JAN-2000', 'DD-MON-YYYY') THEN
+            v_bonus := 150;
+        ELSIF v_pdate < TO_DATE('01-JAN-2001', 'DD-MON-YYYY') THEN
+            v_bonus := 100;
+        ELSIF v_pdate < TO_DATE('01-JAN-2002', 'DD-MON-YYYY') THEN
+            v_bonus := 50;
+        ELSE
+            v_bonus := 0;
+        END IF;
+
+        -- Update the record
+        IF v_bonus > 0 THEN
+            UPDATE purchase
+            SET qty = qty + v_bonus
+            WHERE rowid = v_rowid;
+        END IF;
+
+        -- Fetch the next record before the loop restarts
+        FETCH cur_purchases INTO v_rowid, v_pdate;
+    END LOOP;
+
+    -- 4. Close the cursor
+    CLOSE cur_purchases;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Bonus stocks successfully updated using explicit WHILE Loop!');
+END;
+/
+
+
