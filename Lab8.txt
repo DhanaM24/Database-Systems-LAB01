@@ -1,0 +1,159 @@
+
+DATABASE SYSTEMS - Laboratory Worksheet 08
+Student ID  : IT23331518
+
+
+STEP 1: Create Database and Tables
+
+CREATE DATABASE BankDB;
+GO
+
+USE BankDB;
+GO
+
+CREATE TABLE Customer (
+    CustomerID   INT PRIMARY KEY IDENTITY(1,1),
+    CustomerName VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Account (
+    AccountNumber VARCHAR(20)   PRIMARY KEY,
+    CustomerID    INT           NOT NULL,
+    AccountType   VARCHAR(50)   NOT NULL,
+    Balance       DECIMAL(15,2) NOT NULL DEFAULT 0,
+    CONSTRAINT FK_Customer FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+    CONSTRAINT CHK_Balance CHECK (Balance >= 0)
+);
+
+
+STEP 2: Insert Sample Data
+
+
+INSERT INTO Customer (CustomerName) VALUES ('John Doe');
+
+INSERT INTO Account (AccountNumber, CustomerID, AccountType, Balance)
+VALUES ('1234567899', 1, 'Savings', 100.00);
+
+INSERT INTO Account (AccountNumber, CustomerID, AccountType, Balance)
+VALUES ('1234567898', 1, 'Savings', 100.00);
+
+
+
+Lab8.sql - Fund Transfer Script
+
+
+SET XACT_ABORT ON;
+
+DECLARE @sourceAcc       VARCHAR(20)    = '1234567899';
+DECLARE @destAcc         VARCHAR(20)    = '1234567898';
+DECLARE @fundsToTransfer DECIMAL(15,2)  = 150.00;
+
+BEGIN TRANSACTION;
+
+    UPDATE Account
+    SET    Balance = Balance + @fundsToTransfer
+    WHERE  AccountNumber = @destAcc;
+
+    UPDATE Account
+    SET    Balance = Balance - @fundsToTransfer
+    WHERE  AccountNumber = @sourceAcc;
+
+COMMIT TRANSACTION;
+
+SELECT * FROM Account;
+
+
+
+Simulation 2: Concurrency Control - Connection A
+
+
+SET XACT_ABORT ON;
+
+DECLARE @sourceAcc       VARCHAR(20)    = '1234567899';
+DECLARE @destAcc         VARCHAR(20)    = '1234567898';
+DECLARE @fundsToTransfer DECIMAL(15,2)  = 150.00;
+
+BEGIN TRANSACTION;
+
+    -- Run this first, then STOP
+    UPDATE Account
+    SET    Balance = Balance + @fundsToTransfer
+    WHERE  AccountNumber = @destAcc;
+
+    -- Run this after Connection B is blocked
+    UPDATE Account
+    SET    Balance = Balance - @fundsToTransfer
+    WHERE  AccountNumber = @sourceAcc;
+
+COMMIT TRANSACTION;
+
+-- Run this after committing
+SELECT * FROM Account;
+
+
+
+Simulation 2: Concurrency Control - Connection B
+
+
+SET XACT_ABORT ON;
+
+DECLARE @sourceAcc       VARCHAR(20)    = '1234567899';
+DECLARE @destAcc         VARCHAR(20)    = '1234567898';
+DECLARE @fundsToTransfer DECIMAL(15,2)  = 150.00;
+
+BEGIN TRANSACTION;
+
+    -- Run after Connection A's first update
+    UPDATE Account
+    SET    Balance = Balance + @fundsToTransfer
+    WHERE  AccountNumber = @destAcc;
+
+    -- Run after Connection A commits
+    UPDATE Account
+    SET    Balance = Balance - @fundsToTransfer
+    WHERE  AccountNumber = @sourceAcc;
+
+COMMIT TRANSACTION;
+
+
+Simulation 3: Deadlock - Connection A
+
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+BEGIN TRANSACTION;
+
+    UPDATE Account
+    SET    Balance = Balance + 10
+    WHERE  AccountNumber = '1234567899';
+
+    -- Run this after Connection B runs its first update
+    UPDATE Account
+    SET    Balance = Balance - 10
+    WHERE  AccountNumber = '1234567898';
+
+COMMIT TRANSACTION;
+
+
+
+Simulation 3: Deadlock - Connection B
+
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+BEGIN TRANSACTION;
+
+    UPDATE Account
+    SET    Balance = Balance + 10
+    WHERE  AccountNumber = '1234567898';
+
+    -- Run this after Connection A runs its first update
+    UPDATE Account
+    SET    Balance = Balance - 10
+    WHERE  AccountNumber = '1234567899';
+
+COMMIT TRANSACTION;
+
+
+END
+
