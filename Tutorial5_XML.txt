@@ -1,0 +1,151 @@
+Tutorial 5 - XML Databases | Answers
+
+QUESTION (a)
+
+Write an XQuery (FLWOR) expression to retrieve the models made before 1970.
+
+
+SELECT xText.query('
+  <oldPlanes>
+    {
+      for $p in /planes/plane
+      where $p/year < 1970
+      return ($p/make, $p/model)
+    }
+  </oldPlanes>
+')
+FROM Planes
+
+
+EXPECTED OUTPUT:
+----------------
+<oldPlanes>
+  <make> Cessna </make>
+  <model> Centurian </model>
+  <make> Piper </make>
+  <model> Tripacer </model>
+</oldPlanes>
+
+EXPLANATION:
+------------
+- FOR   : Iterates over each <plane> element under <planes>
+- WHERE : Filters planes where year is less than 1970
+           (Cessna Centurian - 1960, Piper Tripacer - 1956)
+- RETURN: Returns the <make> and <model> elements for each matched plane
+- The results are wrapped inside the <oldPlanes> root element
+
+
+
+QUESTION (b)
+What would be the output of the following XQuery expression?
+
+
+GIVEN QUERY:
+------------
+SELECT xText.query('
+  let $planes := /planes/plane
+  return <results>
+    {
+      for $x in $planes
+      where $x/year >= 1970
+      order by ($x/year)[1]
+      return ($x/make, $x/model, $x/year)
+    }
+  </results>
+')
+FROM planes
+
+
+OUTPUT:
+-------
+<results>
+  <make> Piper </make>
+  <model> Apache </model>
+  <year> 1975 </year>
+  <make> Cessna </make>
+  <model> Skyhawk </model>
+  <year> 1977 </year>
+</results>
+
+EXPLANATION:
+------------
+- LET   : Assigns all <plane> elements to the variable $planes
+- FOR   : Iterates over each plane in $planes
+- WHERE : Filters planes where year >= 1970
+           Matching planes:
+             * Piper Apache   (1975)
+             * Cessna Skyhawk (1977)
+           Excluded planes (year < 1970):
+             * Cessna Centurian (1960)
+             * Piper Tripacer   (1956)
+- ORDER BY: Sorts the results in ascending order by year
+             So Piper Apache (1975) comes before Cessna Skyhawk (1977)
+- RETURN: Returns <make>, <model>, and <year> for each matching plane
+- All results are wrapped inside the <results> root element
+
+
+
+QUESTION (c)
+
+Write an XQuery expression to extract data and create an HTML table containing
+the model of all planes along with their color.
+
+
+SELECT xText.query('
+  <table>
+    <tr>
+      <th>Model</th>
+      <th>Color</th>
+    </tr>
+    {
+      for $p in /planes/plane
+      return
+        <tr>
+          <td>{ data($p/model) }</td>
+          <td>{ data($p/color) }</td>
+        </tr>
+    }
+  </table>
+')
+FROM Planes
+
+
+EXPECTED OUTPUT:
+----------------
+<table>
+  <tr>
+    <th>Model</th>
+    <th>Color</th>
+  </tr>
+  <tr>
+    <td> Skyhawk </td>
+    <td> Light blue and white </td>
+  </tr>
+  <tr>
+    <td> Apache </td>
+    <td> White </td>
+  </tr>
+  <tr>
+    <td> Centurian </td>
+    <td> Yellow and white </td>
+  </tr>
+  <tr>
+    <td> Tripacer </td>
+    <td> Blue </td>
+  </tr>
+</table>
+
+EXPLANATION:
+------------
+- The static <table> and header <tr> with <th> elements are declared directly
+- FOR   : Iterates over each <plane> element in /planes/plane
+- RETURN: For each plane, constructs a <tr> row with two <td> cells:
+            * First  <td> contains the plane's model name
+            * Second <td> contains the plane's color
+- data() : Extracts the text value from the XML element
+- All 4 planes are included (no WHERE filter), so all appear in the table
+- Results appear in document order (Skyhawk, Apache, Centurian, Tripacer)
+
+
+END OF TUTORIAL 5 ANSWERS
+
